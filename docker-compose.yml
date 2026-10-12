@@ -21,11 +21,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mlflow:
+        condition: service_healthy
   mlflow:
     build: .
     command: ["mlflow", "server", "--backend-store-uri", "sqlite:////runtime/mlflow.db", "--default-artifact-root", "/runtime/artifacts", "--host", "0.0.0.0", "--port", "5000", "--workers", "1", "--allowed-hosts", "localhost:5000,127.0.0.1:5000,mlflow:5000"]
     ports: ["127.0.0.1:5000:5000"]
     volumes: ["runtime:/runtime"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health',timeout=5)"]
+      interval: 5s
+      retries: 20
   dashboard:
     build: ./frontend
     ports: ["127.0.0.1:5175:80"]

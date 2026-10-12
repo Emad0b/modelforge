@@ -1,6 +1,22 @@
 name: ModelForge CI
 on: [push, pull_request]
 jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up --build -d
+        env:
+          MODELFORGE_ADMIN_TOKEN: ci-demo-only
+      - run: docker compose exec -T api python scripts/bootstrap.py
+      - run: |
+          curl --fail http://127.0.0.1:5175/
+          curl --fail http://127.0.0.1:5000/health
+          curl --fail http://127.0.0.1:8100/api/predict -H 'Content-Type: application/json' -d '{"temperature":82,"vibration":4.2,"pressure":5.3,"rpm":1850,"operating_hours":8200}'
+      - run: docker compose logs --tail 80
+        if: failure()
+      - run: docker compose down -v
+        if: always()
   lifecycle:
     runs-on: ubuntu-latest
     services:
