@@ -1,0 +1,63 @@
+name: ModelForge CI
+on: [push, pull_request]
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: modelforge
+          POSTGRES_USER: modelforge
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U modelforge" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install .
+      - run: python -m pytest -q
+        env:
+          DO_NOT_TRACK: '1'
+      - run: python -m pytest -q
+        env:
+          TEST_DATABASE_URL: postgresql://modelforge:ci-only-password@localhost:5432/modelforge
+          DO_NOT_TRACK: '1'
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install .
+      - run: python scripts/bootstrap.py
+        env:
+          DO_NOT_TRACK: '1'
+          MLFLOW_DISABLE_AGENT_HINT: '1'
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: |
+          uvicorn modelforge.serving.main:app --host 127.0.0.1 --port 8100 >/tmp/modelforge-api.log 2>&1 &
+          cd frontend
+          npm run dev >/tmp/modelforge-ui.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5175/ && break; sleep 1; done
+          npm run test:e2e

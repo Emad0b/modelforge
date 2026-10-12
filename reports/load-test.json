@@ -1,0 +1,11 @@
+{
+  "requests": 200,
+  "concurrency": 8,
+  "successful": 200,
+  "failed": 0,
+  "p50_http_ms": 31.17289999499917,
+  "p95_http_ms": 394.7129999869503,
+  "throughput_rps": 54.761677043926284,
+  "elapsed_seconds": 3.6521891000447795,
+  "errors": []
+}
